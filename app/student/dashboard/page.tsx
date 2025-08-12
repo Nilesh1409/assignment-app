@@ -4,8 +4,10 @@ import { getDatabase } from '@/lib/mongodb'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { MarkdownRenderer } from '@/components/ui/markdown'
+import { formatDisplayDateTime } from '@/lib/utils'
 import Link from 'next/link'
-import { FileText, Clock, BookOpen, LogOut, Calendar, AlertTriangle, CheckCircle, TrendingUp, Timer } from 'lucide-react'
+import { FileText, Clock, BookOpen, LogOut, Calendar, AlertTriangle, CheckCircle, TrendingUp, Timer, Star, Award, Trophy, Target, BookMarked, GraduationCap } from 'lucide-react'
 
 interface Assignment {
   _id: string
@@ -63,10 +65,10 @@ export default async function StudentDashboard() {
   const db = await getDatabase()
   const now = new Date()
   
-  // Get visible assignments (where visibleFrom <= now)
+  // Get visible assignments (where visibleFrom <= now), sorted by creation date (latest first)
   const assignments = await db.collection('assignments')
     .find({ visibleFrom: { $lte: now } })
-    .sort({ deadline: 1 })
+    .sort({ createdAt: -1 })
     .toArray()
 
   // Get submissions for this student
@@ -86,6 +88,15 @@ export default async function StudentDashboard() {
     return !isSubmitted && isOverdue
   }).length
 
+  // Calculate average rating
+  const gradedSubmissions = submissions.filter(sub => sub.rating)
+  const averageRating = gradedSubmissions.length > 0 
+    ? (gradedSubmissions.reduce((sum, sub) => sum + sub.rating, 0) / gradedSubmissions.length).toFixed(1)
+    : null
+
+  // Calculate completion rate
+  const completionRate = totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 100) : 0
+
   // Get upcoming deadlines (next 7 days)
   const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
   const upcomingDeadlines = assignments
@@ -97,75 +108,131 @@ export default async function StudentDashboard() {
     .slice(0, 3)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <header className="bg-white shadow-sm border-b border-blue-100">
-        <div className="container mx-auto px-4 py-6 flex justify-between items-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Enhanced Header with Student Info */}
+      <header className="bg-white/95 backdrop-blur-sm shadow-xl border-b border-blue-100/50 sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                <GraduationCap className="w-6 h-6 text-white" />
+              </div>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Student Dashboard
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-700 to-purple-700 bg-clip-text text-transparent">
+                  Student Portal
             </h1>
-            <p className="text-gray-600 mt-1">Welcome back, {session.name}!</p>
+                <p className="text-gray-600 font-medium">Welcome back, {session.name}!</p>
+                <p className="text-sm text-gray-500">ID: {session.studentId}</p>
+              </div>
+            </div>
+            
+            {/* Quick Stats in Header */}
+            <div className="hidden md:flex items-center gap-6">
+              {averageRating && (
+                <div className="text-center">
+                  <div className="flex items-center gap-1 text-yellow-600 font-bold text-lg">
+                    <Trophy className="w-5 h-5" />
+                    {averageRating}
+                  </div>
+                  <p className="text-xs text-gray-500">Avg. Rating</p>
+                </div>
+              )}
+              <div className="text-center">
+                <div className="text-blue-600 font-bold text-lg">{completionRate}%</div>
+                <p className="text-xs text-gray-500">Completed</p>
           </div>
           <form action={logoutAction}>
-            <Button variant="outline" size="sm" className="hover:bg-red-50 hover:border-red-200">
+                <Button variant="outline" size="sm" className="hover:bg-red-50 hover:border-red-300 transition-colors">
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </Button>
           </form>
+            </div>
+          </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid gap-6">
-          {/* Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+      <div className="container mx-auto px-6 py-8">
+        <div className="grid gap-8">
+          {/* Enhanced Overview Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <Card className="bg-gradient-to-br from-blue-600 to-blue-700 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-blue-100 text-sm font-medium">Total Assignments</p>
-                    <p className="text-3xl font-bold">{totalAssignments}</p>
+                    <p className="text-blue-100 text-sm font-medium">Total</p>
+                    <p className="text-4xl font-bold">{totalAssignments}</p>
+                    <p className="text-blue-200 text-xs mt-1">Assignments</p>
                   </div>
-                  <FileText className="w-8 h-8 text-blue-200" />
+                  <div className="bg-white/20 p-3 rounded-full">
+                    <BookMarked className="w-8 h-8 text-white" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
+            <Card className="bg-gradient-to-br from-emerald-600 to-green-700 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-green-100 text-sm font-medium">Completed</p>
-                    <p className="text-3xl font-bold">{completedAssignments}</p>
+                    <p className="text-4xl font-bold">{completedAssignments}</p>
+                    <p className="text-green-200 text-xs mt-1">{completionRate}% Success</p>
                   </div>
-                  <CheckCircle className="w-8 h-8 text-green-200" />
+                  <div className="bg-white/20 p-3 rounded-full">
+                    <CheckCircle className="w-8 h-8 text-white" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0">
+            <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-orange-100 text-sm font-medium">Pending</p>
-                    <p className="text-3xl font-bold">{pendingAssignments}</p>
+                    <p className="text-4xl font-bold">{pendingAssignments}</p>
+                    <p className="text-orange-200 text-xs mt-1">To Complete</p>
                   </div>
-                  <TrendingUp className="w-8 h-8 text-orange-200" />
+                  <div className="bg-white/20 p-3 rounded-full">
+                    <Target className="w-8 h-8 text-white" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0">
+            <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-red-100 text-sm font-medium">Overdue</p>
-                    <p className="text-3xl font-bold">{overdueAssignments}</p>
+                    <p className="text-4xl font-bold">{overdueAssignments}</p>
+                    <p className="text-red-200 text-xs mt-1">Missed</p>
                   </div>
-                  <AlertTriangle className="w-8 h-8 text-red-200" />
+                  <div className="bg-white/20 p-3 rounded-full">
+                    <AlertTriangle className="w-8 h-8 text-white" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Grade Performance Card */}
+            {averageRating && (
+              <Card className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-yellow-100 text-sm font-medium">Avg. Grade</p>
+                      <p className="text-4xl font-bold">{averageRating}</p>
+                      <p className="text-yellow-200 text-xs mt-1">Out of 10</p>
+                    </div>
+                    <div className="bg-white/20 p-3 rounded-full">
+                      <Trophy className="w-8 h-8 text-white" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Upcoming Deadlines */}
@@ -212,25 +279,29 @@ export default async function StudentDashboard() {
           )}
 
           {/* Assignments List */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Available Assignments
+          <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-blue-700 to-purple-700 text-white rounded-t-lg">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="bg-white/20 p-2 rounded-full">
+                  <FileText className="w-6 h-6" />
+                </div>
+                Latest Assignments & Assessments
               </CardTitle>
-              <CardDescription className="text-blue-100">
-                Complete your assignments, quizzes, and exams before the deadline
+              <CardDescription className="text-blue-100 text-base">
+                Complete your assignments, quizzes, and exams before the deadline • Sorted by newest first
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-8">
               {assignments.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg font-medium">No assignments available yet</p>
-                  <p className="text-sm">Check back later for new assignments</p>
+                <div className="text-center py-16 text-gray-500">
+                  <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center">
+                    <FileText className="w-10 h-10 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">No assignments available yet</h3>
+                  <p className="text-gray-400">Check back later for new assignments from your teachers</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {assignments.map((assignment: any) => {
                     const submission = submissionMap.get(assignment._id.toString())
                     const deadline = new Date(assignment.deadline)
@@ -239,21 +310,22 @@ export default async function StudentDashboard() {
                     const deadlineStatus = getDeadlineStatus(deadline, now)
                     
                     return (
-                      <div 
+                      <Card 
                         key={assignment._id.toString()} 
-                        className={`border-2 rounded-xl p-6 transition-all hover:shadow-lg ${
-                          isSubmitted ? 'border-green-200 bg-green-50' :
-                          isOverdue ? 'border-red-200 bg-red-50' :
-                          deadlineStatus.status === 'urgent' ? 'border-red-300 bg-red-50' :
-                          deadlineStatus.status === 'warning' ? 'border-orange-300 bg-orange-50' :
-                          'border-gray-200 bg-white hover:border-blue-300'
+                        className={`transition-all duration-300 hover:shadow-xl border-l-4 ${
+                          isSubmitted ? 'border-l-green-500 bg-gradient-to-r from-green-50 to-white shadow-green-100' :
+                          isOverdue ? 'border-l-red-500 bg-gradient-to-r from-red-50 to-white shadow-red-100' :
+                          deadlineStatus.status === 'urgent' ? 'border-l-red-400 bg-gradient-to-r from-red-50 to-orange-50 shadow-red-100' :
+                          deadlineStatus.status === 'warning' ? 'border-l-orange-400 bg-gradient-to-r from-orange-50 to-yellow-50 shadow-orange-100' :
+                          'border-l-blue-500 bg-gradient-to-r from-blue-50 to-white hover:shadow-blue-100'
                         }`}
                       >
-                        <div className="flex justify-between items-start">
+                        <CardContent className="p-7">
+                          <div className="flex justify-between items-start gap-6">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <h3 className="font-bold text-xl text-gray-900">{assignment.title}</h3>
-                              <div className="flex gap-2">
+                              <div className="flex items-center gap-3 mb-4">
+                                <h3 className="font-bold text-2xl text-gray-900">{assignment.title}</h3>
+                                <div className="flex gap-2 flex-wrap">
                                 {assignment.type === 'assignment' && (
                                   <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                                     <FileText className="w-3 h-3 mr-1" />
@@ -294,24 +366,154 @@ export default async function StudentDashboard() {
                                 )}
                               </div>
                             </div>
-                            <p className="text-gray-700 text-base mb-4 leading-relaxed">{assignment.description}</p>
-                            <div className="flex gap-6 text-sm text-gray-600">
-                              <span className="flex items-center gap-2 font-medium">
+                            
+                            {/* Assignment Description Preview */}
+                            <div className="mb-6">
+                              <div className="bg-white/70 p-4 rounded-lg border border-gray-100">
+                                <div className="text-gray-700 leading-relaxed">
+                                  {assignment.description.length > 150 ? (
+                                    <>
+                                      <p className="text-gray-600">
+                                        {assignment.description.substring(0, 150)}...
+                                      </p>
+                                      <Button 
+                                        variant="link" 
+                                        size="sm" 
+                                        className="p-0 h-auto text-blue-600 hover:text-blue-800 font-medium"
+                                        asChild
+                                      >
+                                        <Link href={`/student/assignment/${assignment._id}`}>
+                                          Read more →
+                                        </Link>
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <MarkdownRenderer content={assignment.description} className="text-gray-700" />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
+                              <span className="flex items-center gap-2 font-medium bg-white/60 px-3 py-1 rounded-full">
                                 <Calendar className="w-4 h-4" />
-                                Deadline: {deadline.toLocaleString()}
+                                Deadline: {formatDisplayDateTime(deadline)}
                               </span>
                               {assignment.timeLimit && (
-                                <span className="flex items-center gap-2 font-medium">
+                                <span className="flex items-center gap-2 font-medium bg-white/60 px-3 py-1 rounded-full">
                                   <Clock className="w-4 h-4" />
                                   Time Limit: {assignment.timeLimit} minutes
                                 </span>
                               )}
+                              <span className="flex items-center gap-2 text-xs text-gray-500 bg-white/60 px-3 py-1 rounded-full">
+                                <BookOpen className="w-3 h-3" />
+                                Created: {new Date(assignment.createdAt).toLocaleDateString()}
+                              </span>
                             </div>
+                            {/* Enhanced Submission Status */}
                             {isSubmitted && (
-                              <div className="mt-3 p-3 bg-green-100 rounded-lg">
-                                <p className="text-sm text-green-800 font-medium">
-                                  ✅ Submitted on: {new Date(submission.submittedAt).toLocaleString()}
-                                </p>
+                              <div className="space-y-3">
+                                <div className="bg-gradient-to-r from-green-100 to-emerald-100 border border-green-200 rounded-xl p-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="bg-green-500 p-2 rounded-full">
+                                      <CheckCircle className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-green-800">Assignment Submitted</p>
+                                      <p className="text-sm text-green-700">
+                                        Submitted on: {formatDisplayDateTime(submission.submittedAt)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Enhanced Grading Results */}
+                                {(submission.rating || submission.feedback || submission.status) && (
+                                  <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-5">
+                                    <div className="flex items-center gap-3 mb-4">
+                                      <div className="bg-purple-500 p-2 rounded-full">
+                                        <Award className="w-5 h-5 text-white" />
+                                      </div>
+                                      <h4 className="font-bold text-purple-800 text-lg">Grading Results</h4>
+                                    </div>
+                                    
+                                    <div className="grid gap-3">
+                                      {submission.rating && (
+                                        <div className="relative overflow-hidden bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-300 rounded-xl p-4 shadow-lg">
+                                          {/* Celebration overlay for high scores */}
+                                          {submission.rating >= 8 && (
+                                            <div className="absolute inset-0 bg-gradient-to-r from-yellow-100/20 to-amber-100/20 animate-pulse"></div>
+                                          )}
+                                          <div className="relative flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                              <div className="bg-gradient-to-br from-yellow-500 to-amber-500 p-2 rounded-full">
+                                                <Star className="w-6 h-6 text-white" />
+                                              </div>
+                                              <div>
+                                                <span className="font-bold text-yellow-800 text-lg">Your Score</span>
+                                                {submission.rating >= 9 && (
+                                                  <p className="text-xs text-yellow-700 font-medium">🎉 Outstanding!</p>
+                                                )}
+                                                {submission.rating >= 7 && submission.rating < 9 && (
+                                                  <p className="text-xs text-yellow-700 font-medium">⭐ Great work!</p>
+                                                )}
+                                                {submission.rating >= 5 && submission.rating < 7 && (
+                                                  <p className="text-xs text-yellow-700 font-medium">👍 Good job!</p>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <div className="text-right">
+                                                <div className="flex items-baseline gap-1">
+                                                  <span className="text-4xl font-black text-yellow-700">{submission.rating}</span>
+                                                  <span className="text-lg text-yellow-600 font-bold">/10</span>
+                                                </div>
+                                                {submission.rating >= 8 && (
+                                                  <div className="flex justify-end mt-1">
+                                                    <Trophy className="w-6 h-6 text-yellow-600" />
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {submission.status && (
+                                        <div className={`border rounded-lg p-3 ${
+                                          submission.status === 'pass' 
+                                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-green-200' 
+                                            : 'bg-gradient-to-r from-red-100 to-pink-100 border-red-200'
+                                        }`}>
+                                          <div className="flex items-center gap-3">
+                                            {submission.status === 'pass' ? (
+                                              <CheckCircle className="w-6 h-6 text-green-600" />
+                                            ) : (
+                                              <AlertTriangle className="w-6 h-6 text-red-600" />
+                                            )}
+                                            <span className={`text-xl font-bold uppercase ${
+                                              submission.status === 'pass' ? 'text-green-700' : 'text-red-700'
+                                            }`}>
+                                              {submission.status}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {submission.feedback && (
+                                        <div className="bg-white border border-blue-200 rounded-lg p-4">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <BookOpen className="w-4 h-4 text-blue-600" />
+                                            <span className="font-medium text-blue-800">Teacher Feedback</span>
+                                          </div>
+                                          <p className="text-blue-700 italic leading-relaxed">
+                                            "{submission.feedback}"
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                             {!isSubmitted && deadlineStatus.status === 'urgent' && (
@@ -323,36 +525,47 @@ export default async function StudentDashboard() {
                               </div>
                             )}
                           </div>
-                          <div className="ml-6">
+                          
+                          {/* Action Buttons */}
+                          <div className="flex flex-col gap-3 min-w-[140px]">
                             {!isSubmitted && !isOverdue && (
                               <Link href={`/student/assignment/${assignment._id}`}>
                                 <Button 
                                   size="lg"
-                                  className={`${
-                                    deadlineStatus.status === 'urgent' ? 'bg-red-600 hover:bg-red-700' :
-                                    deadlineStatus.status === 'warning' ? 'bg-orange-600 hover:bg-orange-700' :
-                                    'bg-blue-600 hover:bg-blue-700'
+                                  className={`w-full font-semibold text-lg py-3 transition-all duration-300 shadow-lg hover:shadow-xl ${
+                                    deadlineStatus.status === 'urgent' ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800' :
+                                    deadlineStatus.status === 'warning' ? 'bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800' :
+                                    'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
                                   } text-white`}
                                 >
-                                  {assignment.type === 'assignment' ? 'Submit' : 'Start'}
+                                  Open
                                 </Button>
                               </Link>
                             )}
                             {isSubmitted && (
                               <Link href={`/student/assignment/${assignment._id}`}>
-                                <Button variant="outline" size="lg" className="border-green-300 text-green-700 hover:bg-green-50">
-                                  View Submission
+                                <Button 
+                                  variant="outline" 
+                                  size="lg" 
+                                  className="w-full border-2 border-green-400 text-green-700 hover:bg-green-50 hover:border-green-500 font-semibold py-3 transition-all duration-300"
+                                >
+                                  View Details
                                 </Button>
                               </Link>
                             )}
                             {isOverdue && !isSubmitted && (
-                              <Button disabled size="lg" className="bg-gray-400 text-gray-600">
+                              <Button 
+                                disabled 
+                                size="lg" 
+                                className="w-full bg-gray-400 text-gray-600 font-semibold py-3"
+                              >
                                 Overdue
                               </Button>
                             )}
                           </div>
                         </div>
-                      </div>
+                        </CardContent>
+                      </Card>
                     )
                   })}
                 </div>

@@ -5,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { MarkdownRenderer } from '@/components/ui/markdown'
+import { formatDisplayDateTime } from '@/lib/utils'
 import Link from 'next/link'
-import { ArrowLeft, Clock, FileText, BookOpen, AlertTriangle, CheckCircle, Timer, Save } from 'lucide-react'
+import { ArrowLeft, Clock, FileText, BookOpen, AlertTriangle, CheckCircle, Timer, Save, Star, Award } from 'lucide-react'
 import { submitAssignmentAction } from './actions'
 
 interface Assignment {
@@ -22,6 +24,11 @@ interface Submission {
   _id: string
   content: string
   submittedAt: string
+  rating?: number
+  feedback?: string
+  status?: 'pass' | 'fail'
+  gradedAt?: string
+  gradedBy?: string
 }
 
 interface Student {
@@ -149,37 +156,47 @@ export default function AssignmentView({ assignment, submission, student }: Prop
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <header className="bg-white shadow-lg border-b border-blue-100">
-        <div className="container mx-auto px-4 py-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Enhanced Header */}
+      <header className="bg-white/95 backdrop-blur-sm shadow-xl border-b border-blue-100/50 sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
               <Link href="/student/dashboard">
-                <Button variant="outline" size="sm" className="hover:bg-blue-50">
+                <Button variant="outline" size="sm" className="hover:bg-blue-50 transition-colors shadow-sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Dashboard
                 </Button>
               </Link>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  {assignment.title}
-                </h1>
-                <p className="text-gray-600 mt-1">Student: {student.name}</p>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                  {assignment.type === 'assignment' && <FileText className="w-6 h-6 text-white" />}
+                  {assignment.type === 'quiz' && <Clock className="w-6 h-6 text-white" />}
+                  {assignment.type === 'exam' && <BookOpen className="w-6 h-6 text-white" />}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-700 to-purple-700 bg-clip-text text-transparent">
+                    {assignment.title}
+                  </h1>
+                  <p className="text-gray-600 mt-1 font-medium">Student: {student.name} • ID: {student.studentId}</p>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {/* Deadline countdown */}
-              <div className={`p-3 rounded-lg border-2 ${deadlineStatus.bgColor}`}>
-                <div className="text-sm font-medium text-gray-700 mb-1">Deadline</div>
-                <CountdownTimer deadline={deadline} />
+              {/* Enhanced Deadline countdown */}
+              <div className={`p-4 rounded-xl border-2 shadow-lg backdrop-blur-sm ${deadlineStatus.bgColor}`}>
+                <div className="text-sm font-bold text-gray-700 mb-1 text-center">Deadline</div>
+                <div className="text-center">
+                  <CountdownTimer deadline={deadline} />
+                </div>
               </div>
               
-              {/* Timer for timed assignments */}
+              {/* Enhanced Timer for timed assignments */}
               {timeLeft !== null && isStarted && !isSubmitted && (
-                <div className="p-3 rounded-lg border-2 bg-red-50 border-red-300">
+                <div className="p-4 rounded-xl border-2 bg-gradient-to-r from-red-50 to-pink-50 border-red-300 shadow-lg">
                   <div className="flex items-center gap-2 text-lg font-mono">
-                    <Timer className="w-5 h-5 text-red-500" />
-                    <span className={`font-bold ${timeLeft < 300 ? 'text-red-600 animate-pulse' : 'text-red-500'}`}>
+                    <Timer className="w-6 h-6 text-red-500" />
+                    <span className={`font-bold text-xl ${timeLeft < 300 ? 'text-red-600 animate-pulse' : 'text-red-500'}`}>
                       {formatTime(timeLeft)}
                     </span>
                   </div>
@@ -190,44 +207,46 @@ export default function AssignmentView({ assignment, submission, student }: Prop
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-5xl mx-auto space-y-6">
-          {/* Assignment Details Card */}
-          <Card className={`shadow-lg border-2 ${deadlineStatus.bgColor}`}>
-            <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+      <div className="container mx-auto px-6 py-8">
+        <div className="max-w-6xl mx-auto space-y-8">
+          {/* Enhanced Assignment Details Card */}
+          <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-blue-700 to-purple-700 text-white rounded-t-lg">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-3 text-xl">
-                    {assignment.type === 'assignment' && <FileText className="w-6 h-6" />}
-                    {assignment.type === 'quiz' && <Clock className="w-6 h-6" />}
-                    {assignment.type === 'exam' && <BookOpen className="w-6 h-6" />}
-                    {assignment.title}
-                  </CardTitle>
-                  <CardDescription className="text-blue-100 mt-2">
-                    <div className="flex gap-4">
-                      <span>Deadline: {deadline.toLocaleString()}</span>
-                      {assignment.timeLimit && <span>Time Limit: {assignment.timeLimit} minutes</span>}
-                    </div>
-                  </CardDescription>
+                <div className="flex items-center gap-4">
+                  <div className="bg-white/20 p-3 rounded-full">
+                    {assignment.type === 'assignment' && <FileText className="w-8 h-8" />}
+                    {assignment.type === 'quiz' && <Clock className="w-8 h-8" />}
+                    {assignment.type === 'exam' && <BookOpen className="w-8 h-8" />}
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl font-bold">
+                      {assignment.title}
+                    </CardTitle>
+                    <CardDescription className="text-blue-100 mt-2 text-base">
+                      <div className="flex flex-wrap gap-4">
+                        <span>📅 Deadline: {formatDisplayDateTime(deadline)}</span>
+                        {assignment.timeLimit && <span>⏱️ Time Limit: {assignment.timeLimit} minutes</span>}
+                      </div>
+                    </CardDescription>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant="secondary" className="bg-white text-blue-600 font-semibold text-sm px-3 py-1">
+                <div className="flex gap-3">
+                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30 font-semibold text-sm px-4 py-2">
                     {assignment.type.charAt(0).toUpperCase() + assignment.type.slice(1)}
                   </Badge>
                   {isSubmitted && (
-                    <Badge className="bg-green-100 text-green-800 border-green-300 font-semibold text-sm px-3 py-1">
+                    <Badge className="bg-green-500 text-white border-green-400 font-semibold text-sm px-4 py-2">
                       <CheckCircle className="w-4 h-4 mr-1" />
                       Submitted
                     </Badge>
                   )}
                   {!isSubmitted && (
                     <Badge 
-                      variant={deadlineStatus.color === 'orange' ? 'secondary' : deadlineStatus.color === 'destructive' ? 'destructive' : 'secondary'}
-                      className={`font-semibold text-sm px-3 py-1 ${
-                        deadlineStatus.color === 'orange' ? 'bg-orange-100 text-orange-800 border-orange-300' :
-                        deadlineStatus.status === 'urgent' ? 'bg-red-100 text-red-800 border-red-300' :
-                        deadlineStatus.status === 'warning' ? 'bg-orange-100 text-orange-800 border-orange-300' :
-                        ''
+                      className={`font-semibold text-sm px-4 py-2 ${
+                        deadlineStatus.status === 'urgent' ? 'bg-red-500 text-white border-red-400' :
+                        deadlineStatus.status === 'warning' ? 'bg-orange-500 text-white border-orange-400' :
+                        'bg-blue-500 text-white border-blue-400'
                       }`}
                     >
                       {deadlineStatus.status === 'urgent' && <AlertTriangle className="w-4 h-4 mr-1" />}
@@ -237,9 +256,13 @@ export default function AssignmentView({ assignment, submission, student }: Prop
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="prose max-w-none">
-                <p className="text-gray-700 text-lg leading-relaxed whitespace-pre-wrap">{assignment.description}</p>
+            <CardContent className="p-8">
+              <div className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border border-gray-100">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5" />
+                  Assignment Instructions
+                </h3>
+                <MarkdownRenderer content={assignment.description} />
               </div>
             </CardContent>
           </Card>
@@ -322,7 +345,10 @@ export default function AssignmentView({ assignment, submission, student }: Prop
                 </div>
                 {isSubmitted && (
                   <CardDescription className={`${isSubmitted ? 'text-green-100' : 'text-blue-100'}`}>
-                    Submitted on: {new Date(submission!.submittedAt).toLocaleString()}
+                    Submitted on: {formatDisplayDateTime(submission!.submittedAt)}
+                    {submission!.gradedAt && (
+                      <> • Graded on: {formatDisplayDateTime(submission!.gradedAt)}</>
+                    )}
                   </CardDescription>
                 )}
               </CardHeader>
@@ -386,6 +412,162 @@ export default function AssignmentView({ assignment, submission, student }: Prop
                     </p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Enhanced Grading Results */}
+          {isSubmitted && (submission?.rating || submission?.feedback || submission?.status) && (
+            <Card className="shadow-2xl border-0 bg-gradient-to-br from-purple-50 to-indigo-50">
+              <CardHeader className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-t-lg">
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <div className="bg-white/20 p-2 rounded-full">
+                    <Award className="w-6 h-6" />
+                  </div>
+                  Your Results & Feedback
+                </CardTitle>
+                <CardDescription className="text-purple-100 text-base">
+                  {submission.gradedAt && `Graded on ${formatDisplayDateTime(submission.gradedAt)}`}
+                  {submission.gradedBy && ` by ${submission.gradedBy}`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                {/* Enhanced Rating for assignments and quizzes */}
+                {submission?.rating && assignment.type !== 'exam' && (
+                  <div className="relative overflow-hidden bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-300 rounded-2xl p-6 shadow-lg">
+                    {/* Celebration overlay for high scores */}
+                    {submission.rating >= 8 && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-100/30 to-amber-100/30 animate-pulse"></div>
+                    )}
+                    <div className="relative">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className="bg-gradient-to-br from-yellow-500 to-amber-500 p-3 rounded-full">
+                            <Star className="w-8 h-8 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-bold text-yellow-800">Your Score</h3>
+                            {submission.rating >= 9 && (
+                              <p className="text-yellow-700 font-medium">🎉 Outstanding Performance!</p>
+                            )}
+                            {submission.rating >= 7 && submission.rating < 9 && (
+                              <p className="text-yellow-700 font-medium">⭐ Excellent Work!</p>
+                            )}
+                            {submission.rating >= 5 && submission.rating < 7 && (
+                              <p className="text-yellow-700 font-medium">👍 Good Job!</p>
+                            )}
+                            {submission.rating < 5 && (
+                              <p className="text-yellow-700 font-medium">💪 Keep improving!</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-6xl font-black text-yellow-700">{submission.rating}</span>
+                            <span className="text-2xl text-yellow-600 font-bold">/10</span>
+                          </div>
+                          {submission.rating >= 8 && (
+                            <div className="flex justify-end mt-2">
+                              <Trophy className="w-8 h-8 text-yellow-600 animate-bounce" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Grade bar */}
+                      <div className="w-full bg-yellow-200 rounded-full h-3">
+                        <div 
+                          className="bg-gradient-to-r from-yellow-500 to-amber-500 h-3 rounded-full transition-all duration-1000 ease-out"
+                          style={{width: `${(submission.rating / 10) * 100}%`}}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Enhanced Pass/Fail status for exams */}
+                {submission?.status && assignment.type === 'exam' && (
+                  <div className={`relative overflow-hidden border-2 rounded-2xl p-6 shadow-lg ${
+                    submission.status === 'pass' 
+                      ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-300' 
+                      : 'bg-gradient-to-br from-red-50 to-pink-50 border-red-300'
+                  }`}>
+                    {submission.status === 'pass' && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-green-100/30 to-emerald-100/30 animate-pulse"></div>
+                    )}
+                    <div className="relative flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-full ${
+                          submission.status === 'pass' ? 'bg-green-500' : 'bg-red-500'
+                        }`}>
+                          {submission.status === 'pass' ? (
+                            <CheckCircle className="w-8 h-8 text-white" />
+                          ) : (
+                            <AlertTriangle className="w-8 h-8 text-white" />
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold text-gray-800">Exam Result</h3>
+                          <p className={`font-medium ${
+                            submission.status === 'pass' ? 'text-green-700' : 'text-red-700'
+                          }`}>
+                            {submission.status === 'pass' ? '🎉 Congratulations!' : '💪 Keep studying!'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`text-4xl font-black uppercase ${
+                        submission.status === 'pass' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {submission.status}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Enhanced Rating for exams (optional) */}
+                {submission?.rating && assignment.type === 'exam' && (
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-2xl p-6 shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-gradient-to-br from-blue-500 to-indigo-500 p-3 rounded-full">
+                          <Star className="w-8 h-8 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold text-blue-800">Exam Score</h3>
+                          <p className="text-blue-700 font-medium">Your performance rating</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-5xl font-black text-blue-700">{submission.rating}</span>
+                          <span className="text-xl text-blue-600 font-bold">/10</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Enhanced Feedback */}
+                {submission?.feedback && (
+                  <div className="bg-white border-2 border-blue-200 rounded-2xl p-6 shadow-lg">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="bg-blue-500 p-2 rounded-full">
+                        <BookOpen className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="text-xl font-bold text-blue-800">Teacher Feedback</h3>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                      <p className="text-blue-800 leading-relaxed text-lg italic">
+                        "{submission.feedback}"
+                      </p>
+                    </div>
+                    {submission.gradedBy && (
+                      <p className="text-sm text-blue-600 mt-3 text-right">
+                        — {submission.gradedBy}
+                      </p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
