@@ -81,8 +81,8 @@ export default async function TeacherDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Assignments</CardTitle>
-            <CardDescription>Manage your created assignments, quizzes, and exams</CardDescription>
+            <CardTitle>Latest Assignments</CardTitle>
+            <CardDescription>Manage your created assignments, quizzes, and exams (sorted by newest first)</CardDescription>
           </CardHeader>
           <CardContent>
             {assignments.length === 0 ? (
@@ -103,6 +103,7 @@ export default async function TeacherDashboard() {
                           <span>Type: {assignment.type}</span>
                           <span>Deadline: {new Date(assignment.deadline).toLocaleDateString()}</span>
                           {assignment.timeLimit && <span>Time Limit: {assignment.timeLimit} minutes</span>}
+                          <span>Created: {new Date(assignment.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
                       <Link href={`/teacher/assignment/${assignment._id}`}>

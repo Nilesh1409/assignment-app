@@ -5,8 +5,14 @@ import { ObjectId } from 'mongodb'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { MarkdownRenderer } from '@/components/ui/markdown'
+import { formatDisplayDateTime } from '@/lib/utils'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Clock, BookOpen, User } from 'lucide-react'
+import { ArrowLeft, FileText, Clock, BookOpen, User, Star, CheckCircle, XCircle } from 'lucide-react'
+import { updateSubmissionGrading } from './actions'
 
 export default async function TeacherAssignmentView({ params }: { params: { id: string } }) {
   const session = await getSession()
@@ -58,12 +64,12 @@ export default async function TeacherAssignmentView({ params }: { params: { id: 
                       {assignment.type === 'exam' && <BookOpen className="w-5 h-5" />}
                       {assignment.title}
                     </CardTitle>
-                    <CardDescription>
-                      Created: {new Date(assignment.createdAt).toLocaleString()} • 
-                      Visible From: {new Date(assignment.visibleFrom).toLocaleString()} • 
-                      Deadline: {new Date(assignment.deadline).toLocaleString()}
-                      {assignment.timeLimit && ` • Time Limit: ${assignment.timeLimit} minutes`}
-                    </CardDescription>
+                                      <CardDescription>
+                    Created: {formatDisplayDateTime(assignment.createdAt)} • 
+                    Visible From: {formatDisplayDateTime(assignment.visibleFrom)} • 
+                    Deadline: {formatDisplayDateTime(assignment.deadline)}
+                    {assignment.timeLimit && ` • Time Limit: ${assignment.timeLimit} minutes`}
+                  </CardDescription>
                   </div>
                   <Badge variant="secondary" className="capitalize">
                     {assignment.type}
@@ -71,9 +77,9 @@ export default async function TeacherAssignmentView({ params }: { params: { id: 
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="prose max-w-none">
-                  <h3>Description:</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{assignment.description}</p>
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Description:</h3>
+                  <MarkdownRenderer content={assignment.description} />
                 </div>
               </CardContent>
             </Card>
@@ -96,24 +102,129 @@ export default async function TeacherAssignmentView({ params }: { params: { id: 
                     <p className="text-sm">Students haven't submitted their work yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {submissions.map((submission: any) => (
-                      <div key={submission._id.toString()} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-semibold">{submission.studentName}</h4>
-                            <p className="text-sm text-gray-600">
-                              Student ID: {submission.studentId} • 
-                              Submitted: {new Date(submission.submittedAt).toLocaleString()}
-                            </p>
+                      <Card key={submission._id.toString()} className="border-l-4 border-l-blue-400">
+                        <CardHeader>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-semibold text-lg">{submission.studentName}</h4>
+                              <p className="text-sm text-gray-600">
+                                Student ID: {submission.studentId} • 
+                                Submitted: {formatDisplayDateTime(submission.submittedAt)}
+                                {submission.gradedAt && (
+                                  <> • Graded: {formatDisplayDateTime(submission.gradedAt)} by {submission.gradedBy}</>
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Badge variant="default">Submitted</Badge>
+                              {submission.rating && (
+                                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                                  <Star className="w-3 h-3 mr-1" />
+                                  {submission.rating}/10
+                                </Badge>
+                              )}
+                              {submission.status === 'pass' && (
+                                <Badge className="bg-green-100 text-green-800">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Pass
+                                </Badge>
+                              )}
+                              {submission.status === 'fail' && (
+                                <Badge variant="destructive" className="bg-red-100 text-red-800">
+                                  <XCircle className="w-3 h-3 mr-1" />
+                                  Fail
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          <Badge variant="default">Submitted</Badge>
-                        </div>
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h5 className="font-medium mb-2">Submission:</h5>
-                          <p className="text-gray-700 whitespace-pre-wrap">{submission.content}</p>
-                        </div>
-                      </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h5 className="font-medium mb-3">Student Submission:</h5>
+                            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{submission.content}</p>
+                          </div>
+
+                          {submission.feedback && (
+                            <div className="bg-blue-50 rounded-lg p-4">
+                              <h5 className="font-medium mb-2 text-blue-800">Teacher Feedback:</h5>
+                              <p className="text-blue-700 whitespace-pre-wrap">{submission.feedback}</p>
+                            </div>
+                          )}
+
+                          {/* Grading Form */}
+                          <form action={updateSubmissionGrading} className="border-t pt-4">
+                            <input type="hidden" name="submissionId" value={submission._id.toString()} />
+                            <input type="hidden" name="assignmentType" value={assignment.type} />
+                            
+                            <div className="grid md:grid-cols-2 gap-4">
+                              {assignment.type === 'exam' ? (
+                                <>
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`status-${submission._id}`}>Pass/Fail Status</Label>
+                                    <select
+                                      id={`status-${submission._id}`}
+                                      name="status"
+                                      defaultValue={submission.status || ''}
+                                      className="w-full p-2 border border-gray-300 rounded-md"
+                                    >
+                                      <option value="">Select Status</option>
+                                      <option value="pass">Pass</option>
+                                      <option value="fail">Fail</option>
+                                    </select>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`rating-${submission._id}`}>Rating (0-10)</Label>
+                                    <Input
+                                      id={`rating-${submission._id}`}
+                                      name="rating"
+                                      type="number"
+                                      min="0"
+                                      max="10"
+                                      step="0.1"
+                                      defaultValue={submission.rating || ''}
+                                      placeholder="Optional rating"
+                                    />
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`rating-${submission._id}`}>Rating (out of 10)</Label>
+                                    <Input
+                                      id={`rating-${submission._id}`}
+                                      name="rating"
+                                      type="number"
+                                      min="0"
+                                      max="10"
+                                      step="0.1"
+                                      defaultValue={submission.rating || ''}
+                                      placeholder="Rate out of 10"
+                                    />
+                                  </div>
+                                  <div className="space-y-2 md:col-span-1">
+                                    <Label htmlFor={`feedback-${submission._id}`}>Feedback</Label>
+                                    <Textarea
+                                      id={`feedback-${submission._id}`}
+                                      name="feedback"
+                                      defaultValue={submission.feedback || ''}
+                                      placeholder="Provide feedback to the student"
+                                      rows={3}
+                                    />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            
+                            <div className="mt-4">
+                              <Button type="submit" size="sm">
+                                {submission.gradedAt ? 'Update Grading' : 'Save Grading'}
+                              </Button>
+                            </div>
+                          </form>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 )}

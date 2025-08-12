@@ -50,7 +50,12 @@ export default async function AssignmentPage({ params }: PageProps) {
         submission={submission ? {
           _id: submission._id.toString(),
           content: submission.content,
-          submittedAt: submission.submittedAt.toISOString()
+          submittedAt: submission.submittedAt.toISOString(),
+          rating: submission.rating,
+          feedback: submission.feedback,
+          status: submission.status,
+          gradedAt: submission.gradedAt?.toISOString(),
+          gradedBy: submission.gradedBy
         } : null}
         student={{
           name: session.name || 'Student',
