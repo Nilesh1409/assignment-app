@@ -14,7 +14,7 @@ interface Assignment {
   title: string
   description: string
   type: 'assignment' | 'quiz' | 'exam'
-  deadline: Date
+  deadline: string
   timeLimit?: number
 }
 
@@ -66,10 +66,17 @@ export default async function StudentDashboard() {
   const now = new Date()
   
   // Get visible assignments (where visibleFrom <= now), sorted by creation date (latest first)
-  const assignments = await db.collection('assignments')
+  const assignmentsRaw = await db.collection('assignments')
     .find({ visibleFrom: { $lte: now } })
     .sort({ createdAt: -1 })
     .toArray()
+  
+  // Convert Date objects to ISO strings for consistent handling
+  const assignments = assignmentsRaw.map(assignment => ({
+    ...assignment,
+    _id: assignment._id.toString(),
+    deadline: assignment.deadline.toISOString()
+  }))
 
   // Get submissions for this student
   const submissions = await db.collection('submissions')
@@ -80,10 +87,10 @@ export default async function StudentDashboard() {
 
   // Calculate statistics
   const totalAssignments = assignments.length
-  const completedAssignments = assignments.filter(a => submissionMap.has(a._id.toString())).length
+  const completedAssignments = assignments.filter(a => submissionMap.has(a._id)).length
   const pendingAssignments = totalAssignments - completedAssignments
   const overdueAssignments = assignments.filter(a => {
-    const isSubmitted = submissionMap.has(a._id.toString())
+    const isSubmitted = submissionMap.has(a._id)
     const isOverdue = new Date(a.deadline) < now
     return !isSubmitted && isOverdue
   }).length
@@ -102,7 +109,7 @@ export default async function StudentDashboard() {
   const upcomingDeadlines = assignments
     .filter(a => {
       const deadline = new Date(a.deadline)
-      const isSubmitted = submissionMap.has(a._id.toString())
+      const isSubmitted = submissionMap.has(a._id)
       return !isSubmitted && deadline > now && deadline <= weekFromNow
     })
     .slice(0, 3)
@@ -254,7 +261,7 @@ export default async function StudentDashboard() {
                     const deadlineStatus = getDeadlineStatus(deadline, now)
                     
                     return (
-                      <div key={assignment._id.toString()} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
+                      <div key={assignment._id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
                         <div className="flex items-center gap-3">
                           {assignment.type === 'assignment' && <FileText className="w-4 h-4 text-blue-600" />}
                           {assignment.type === 'quiz' && <Clock className="w-4 h-4 text-purple-600" />}
@@ -303,7 +310,7 @@ export default async function StudentDashboard() {
               ) : (
                 <div className="space-y-6">
                   {assignments.map((assignment: any) => {
-                    const submission = submissionMap.get(assignment._id.toString())
+                    const submission = submissionMap.get(assignment._id)
                     const deadline = new Date(assignment.deadline)
                     const isOverdue = deadline < now
                     const isSubmitted = !!submission
@@ -311,7 +318,7 @@ export default async function StudentDashboard() {
                     
                     return (
                       <Card 
-                        key={assignment._id.toString()} 
+                        key={assignment._id} 
                         className={`transition-all duration-300 hover:shadow-xl border-l-4 ${
                           isSubmitted ? 'border-l-green-500 bg-gradient-to-r from-green-50 to-white shadow-green-100' :
                           isOverdue ? 'border-l-red-500 bg-gradient-to-r from-red-50 to-white shadow-red-100' :
